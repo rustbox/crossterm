@@ -44,6 +44,7 @@ events = [
     "dep:signal-hook",
     "dep:signal-hook-mio",
 ] # Enables reading input/events from the system.
+unfiltered-events = ["events"] # don't omit any events
 serde = ["dep:serde", "bitflags/serde"] # Enables 'serde' for various types.
 
 #

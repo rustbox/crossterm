@@ -247,7 +247,26 @@ pub fn poll(timeout: Duration) -> std::io::Result<bool> {
 pub fn read() -> std::io::Result<Event> {
     match read_internal(&EventFilter)? {
         InternalEvent::Event(event) => Ok(event),
-        #[cfg(unix)]
+        #[cfg(all(unix, feature = "unfiltered-events"))]
+        ev => match ev {
+            InternalEvent::Event(_) => unreachable!(),
+            InternalEvent::CursorPosition(col, row) => {
+                use std::io::Write;
+                let mut v = vec![b'\x1B', b'['];
+                write!(v, "{}", row + 1).unwrap();
+                v.push(b';');
+                write!(v, "{}", col + 1).unwrap();
+                v.push(b'R');
+                Ok(Event::Raw(v))
+            }
+            InternalEvent::KeyboardEnhancementFlags(flags) => {
+                Ok(Event::Raw(vec![b'\x1B', b'[', b'?', flags.bits(), b'u']))
+            }
+            InternalEvent::PrimaryDeviceAttributes => {
+                todo!("crossterm does not yet support parsing primary device attributes")
+            }
+        },
+        #[cfg(all(unix, not(feature = "unfiltered-events")))]
         _ => unreachable!(),
     }
 }
@@ -560,6 +579,9 @@ pub enum Event {
     /// An resize event with new dimensions after resize (columns, rows).
     /// **Note** that resize events can occur in batches.
     Resize(u16, u16),
+
+    #[cfg(feature = "unfiltered-events")]
+    Raw(Vec<u8>),
 }
 
 /// Represents a mouse event.
